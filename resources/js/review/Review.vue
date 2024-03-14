@@ -1,7 +1,8 @@
 <template>
     <div>
+        <success v-if="success">You've left a review, thankyou very much!</success>
         <fatal-error v-if="error"></fatal-error>
-        <div class="row" v-else>
+        <div class="row" v-if="!success && !error">
             <div :class="[{'col-md-4': twoColumn}, {'d-none':oneColumn}]">
                 <div class="card">
                     <div class="card-body">
@@ -29,15 +30,22 @@
                         </div>
                         <div class="form-group">
                             <label for="content" class="text-muted">Describe your experience with</label>
-                            <textarea name="content" id="" cols="30" rows="10" class="form-control" v-model="review.content"></textarea>
-                            <div 
-                                class="invalid-feedback" 
-                                v-for="(error, index) in this.errorFor('to')" 
-                                :key="'to' + index"
-                            >{{ error }}</div>
+                            <textarea 
+                                name="content" 
+                                cols="30" 
+                                rows="10" 
+                                class="form-control" 
+                                v-model="review.content" 
+                                :class="[{'is-invalid': errorFor('content')}]">
+                            </textarea>
+                            <v-errors :errors ="errorFor('content')"></v-errors>
                         </div>
 
-                        <button class="btn btn-lg btn-primary btn-block" @click.prevent="submit" :disabled="loading">Submit</button>
+                        <button 
+                            class="btn btn-lg btn-primary btn-block" 
+                            @click.prevent="submit" 
+                            :disabled="sending">Submit
+                        </button>
                     </div>
                 </div>
             </div>
@@ -47,40 +55,46 @@
 </template>
 <script>
 import { is404, is422 } from "../shared/utils/response";
+import validationErrors from "../shared/mixins/ValidationErrors";
 
 export default {
+    mixins : [validationErrors],
     data() {
         return {
             review: {
-                id: null,
+                id:null,
                 rating: 5,
                 content: null
             },
             existingReview: null,
             loading: false,
             booking: null,
-            errors: null
+            error: false,
+            sending: false,
+            success: false,
         };
     },
-    created() {
+    async created() {
         this.review.id = this.$route.params.id;
-        this.loading = true;
-        
-        axios.get(`/api/reviews/${this.review.id}`)
-        .then(response => {
-            this.existingReview = response.data.data
-        }).catch(err => {
-            if( is404(err) ) {
-                return axios.get(`/api/booking-by-review/${this.review.id}`)
-                            .then(response => {
-                                this.booking = response.data.data;
-                            }).catch(err => {
-                                this.error = !is404(err);
-                            });
+        this.sending = true;
+        try {
+            this.existingReview = (await axios.get(
+                `/api/reviews/${this.review.id}`
+            )).data.data;
+        } catch (err) {
+            if(is404(err)){
+                try {
+                    this.booking = (await axios.get(
+                        `/api/booking-by-review/${this.review.id}`
+                    )).data.data;
+                } catch (err) {
+                    this.error = !is404(err);
+                }
+            }else{
+                this.error = true;
             }
-        }).then(() => {
-            this.loading = false
-        });
+        }
+        this.sending = false;
     },
     computed: {
         alreadyReviewed() {
@@ -102,9 +116,13 @@ export default {
     methods: {
         submit() {
             this.errors = null;
-            this.loading = true;
-            axios.post(`/api/reviews`, this.review)
-                .then(response => console.log(response))
+            this.sending = true;
+            this.success = false;
+            axios
+                .post(`/api/reviews`, this.review)
+                .then(response => {
+                    this.success = 201 === response.status;
+                })
                 .catch(err => {
                     if(is422(err)){
                         const errors = err.response.data.errors;
@@ -117,7 +135,7 @@ export default {
 
                     this.error = true;
                 })
-                .then(() => (this.loading = false));
+                .then(() => (this.sending = false));
         }
     }
 }
