@@ -29,15 +29,22 @@
                         </div>
                         <div class="form-group">
                             <label for="content" class="text-muted">Describe your experience with</label>
-                            <textarea name="content" id="" cols="30" rows="10" class="form-control" v-model="review.content"></textarea>
-                            <div 
-                                class="invalid-feedback" 
-                                v-for="(error, index) in this.errorFor('to')" 
-                                :key="'to' + index"
-                            >{{ error }}</div>
+                            <textarea 
+                                name="content" 
+                                cols="30" 
+                                rows="10" 
+                                class="form-control" 
+                                v-model="review.content" 
+                                :class="[{'is-invalid': errorFor('content')}]">
+                            </textarea>
+                            <v-errors :errors ="errorFor('content')"></v-errors>
                         </div>
 
-                        <button class="btn btn-lg btn-primary btn-block" @click.prevent="submit" :disabled="loading">Submit</button>
+                        <button 
+                            class="btn btn-lg btn-primary btn-block" 
+                            @click.prevent="submit" 
+                            :disabled="sending">Submit
+                        </button>
                     </div>
                 </div>
             </div>
@@ -52,19 +59,21 @@ export default {
     data() {
         return {
             review: {
-                id: null,
+                id:null,
                 rating: 5,
                 content: null
             },
             existingReview: null,
             loading: false,
             booking: null,
-            errors: null
+            error: false,
+            errors:null,
+            sending: false
         };
     },
     created() {
         this.review.id = this.$route.params.id;
-        this.loading = true;
+        this.sending = true;
         
         axios.get(`/api/reviews/${this.review.id}`)
         .then(response => {
@@ -79,7 +88,7 @@ export default {
                             });
             }
         }).then(() => {
-            this.loading = false
+            this.sending = false
         });
     },
     computed: {
@@ -102,8 +111,9 @@ export default {
     methods: {
         submit() {
             this.errors = null;
-            this.loading = true;
-            axios.post(`/api/reviews`, this.review)
+            this.sending = true;
+            axios
+                .post(`/api/reviews`, this.review)
                 .then(response => console.log(response))
                 .catch(err => {
                     if(is422(err)){
@@ -117,7 +127,12 @@ export default {
 
                     this.error = true;
                 })
-                .then(() => (this.loading = false));
+                .then(() => (this.sending = false));
+        },
+        errorFor(field) {
+            return null !== this.errors && this.errors[field]
+                ? this.errors[field] 
+                : null;
         }
     }
 }
