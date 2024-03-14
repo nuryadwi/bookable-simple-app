@@ -16,7 +16,7 @@
                     placeholder="Start Date" 
                     v-model="from"
                     @keyup.enter="check"
-                    :class="[{'is-invalid': this.errorFor('from')}]"
+                    :class="[{'is-invalid': errorFor('from')}]"
                 />
                 <v-errors :errors="errorFor('from')"></v-errors>
             </div>
@@ -29,7 +29,7 @@
                     placeholder="End Date" 
                     v-model="to"
                     @keyup.enter="check"
-                    :class="[{'is-invalid': this.errorFor('to')}]"
+                    :class="[{'is-invalid': errorFor('to')}]"
                 />
                 <v-errors :errors="errorFor('to')"></v-errors>
             </div>
@@ -39,8 +39,10 @@
 </template>
 <script>
 import { is404, is422 } from "../shared/utils/response";
+import validationErrors from "../shared/mixins/ValidationErrors";
 
 export default {
+    mixins : [validationErrors],
     props: {
         bookableId: Number
     },
@@ -69,9 +71,6 @@ export default {
                 this.status = error.response.status;
             })
             .then(() => (this.loading = false));
-        },
-        errorFor(field) {
-            return this.hasErrors && this.errors[field] ? this.errors[field] : null; 
         }
     },
     computed: {
